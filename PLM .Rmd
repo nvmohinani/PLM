@@ -1,0 +1,107 @@
+---
+title: "Untitled"
+author: "Nikhil Mohinani"
+date: "12/2/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+## Data 
+
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+## Preprocessing
+
+```{r processing}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(corrplot)
+library(dplyr)
+library(rattle)
+
+trainDataset <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+testDataset <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+
+dim(trainDataset)
+dim(testDataset)
+
+## Here we remove observations without values and then variables that are irrelevant to the outcome.
+
+trainDataset <- trainDataset[, colSums(is.na(trainDataset))==0]
+testDataset <- testDataset[, colSums(is.na(testDataset))==0]
+
+classe <- trainDataset$classe
+trainRemoveColumns <- grepl("^X|timestamp|window", names(trainDataset))
+trainDataset <- trainDataset[, !trainRemoveColumns]
+trainingData <- trainDataset[, sapply(trainDataset, is.numeric)]
+trainingData$classe <- classe
+
+testRemove <- grepl("^X|timestamp|window", names(testDataset))
+testDataset <- testDataset[, !testRemove]
+testingData <- testDataset[, sapply(testDataset, is.numeric)]
+
+## This step splits the dataset into a training dataset and test dataset. 
+
+set.seed(22519)
+inTrain <- createDataPartition(trainingData$classe, p = 0.70, list=F)
+trainFinal <- trainingData[inTrain, ]
+testFinal <- trainingData[-inTrain, ]
+
+```
+
+## Model
+
+```{r model}
+
+## This model uses random forests and cross validation to predict activity outcomes.
+
+controlRf <- trainControl(method="cv", 3)
+modelRf <- train(classe ~ ., data=trainFinal, method="rf", trControl=controlRf, ntree=25)
+modelRf
+
+## Below is an estimation of the model performance on the test dataset.
+
+predictRf <- predict(modelRf, testFinal)
+confusionMatrix(predictRf, as.factor(testFinal$classe))
+
+accuracy <- postResample(predictRf, as.factor(testFinal$classe))
+accuracy
+
+## The accuracy estimation is around 99.3%.
+
+oose <- 1 - as.numeric(confusionMatrix(as.factor(testFinal$classe), predictRf)$overall[1])
+oose
+
+## The estimated out of sample error is about 0.7%.
+
+## The model is then applied to the original test dataset.
+
+result <- predict(modelRf, testingData[, -length(names(testingData))])
+result
+
+```
+
+## Appendix 
+
+```{r appendix}
+
+treeModel <- rpart(classe ~ ., data = trainFinal, method = "class")
+fancyRpartPlot(treeModel)
+
+```
+
