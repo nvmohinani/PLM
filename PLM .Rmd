@@ -3,6 +3,7 @@ title: "Untitled"
 author: "Nikhil Mohinani"
 date: "12/2/2020"
 output: html_document
+keep_md: true
 ---
 
 ```{r setup, include=FALSE}
